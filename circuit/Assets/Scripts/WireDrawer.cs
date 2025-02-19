@@ -1,79 +1,50 @@
+using System.Collections;
 using System.Collections.Generic;
+using System.Drawing;
+using UnityEditor.Build.Content;
 using UnityEngine;
 
-public class WireDrawer3D : MonoBehaviour
+public class WireDrawer : MonoBehaviour
 {
-    public LineRenderer lineRenderer; // ·—”„ «·”·ﬂ
-    public LayerMask connectionPointsLayer; // ÿ»ﬁ… ·‰ﬁ«ÿ «· Ê’Ì·
-    public Camera mainCamera; // «·ﬂ«„Ì—« «·—∆Ì”Ì…
+    public WireGenerator WireGenerator;
+    public GameObject WirePrefab;
+    public Camera cam;
+    public GameObject WirePoint;
 
-    private List<Vector3> wirePositions = new List<Vector3>();
-    private bool isDrawing = false;
+    void Start()
+    {
+        
+    }
 
     void Update()
     {
-        Vector3 mousePos = GetMouseWorldPosition();
-
-        if (Input.GetMouseButtonDown(0)) // ⁄‰œ «·÷€ÿ ⁄·Ï «·„«Ê”
+        Vector2 mousePos = cam.ScreenToWorldPoint(Input.mousePosition);
+        RaycastHit2D hit = Physics2D.Raycast(mousePos, Vector2.zero);
+      
+        if (Input.GetMouseButton(0))
         {
-            if (!isDrawing) // »œ¡ —”„ «·”·ﬂ
+            if (hit.collider != null )
             {
-                Collider hit = GetMouseHit();
-                if (hit != null) //  Õﬁﬁ „‰ ‰ﬁÿ… »œ«Ì… ’ÕÌÕ…
-                {
-                    isDrawing = true;
-                    wirePositions.Clear();
-                    wirePositions.Add(hit.transform.position); // ‰ﬁÿ… «·»œ«Ì…
-                    wirePositions.Add(mousePos); // ‰ﬁÿ… „ƒﬁ …   »⁄ «·„«Ê”
-
-                    lineRenderer.positionCount = wirePositions.Count;
-                    lineRenderer.SetPositions(wirePositions.ToArray());
-                }
+                GameObject _hole = hit.collider.gameObject;
+                GameObject newWire = Instantiate(WirePrefab, _hole.transform.position, transform.rotation);
+                WireGenerator = newWire.GetComponent<WireGenerator>();
+                WirePoint = WireGenerator.points[WireGenerator.points.Count].gameObject;
+                print("done");
             }
-            else // ≈‰Â«¡ «·”·ﬂ ⁄‰œ «·÷€ÿ „—… √Œ—Ï
+            else
             {
-                Collider hit = GetMouseHit();
-                if (hit != null && hit.transform.position != wirePositions[0]) // «· √ﬂœ „‰ ‰ﬁÿ… ‰Â«Ì… ’ÕÌÕ…
-                {
-                    wirePositions[wirePositions.Count - 1] = hit.transform.position; //  À»Ì  ‰ﬁÿ… «·‰Â«Ì…
-                    lineRenderer.SetPositions(wirePositions.ToArray());
-                }
-                else
-                {
-                    // ≈–« ·„ Ì „ «· Ê’Ì·° Ì „ ≈·€«¡ «·”·ﬂ
-                    wirePositions.Clear();
-                    lineRenderer.positionCount = 0;
-                }
-
-                isDrawing = false;
+                print(hit.collider.gameObject.name);
             }
         }
 
-        //  ÕœÌÀ ¬Œ— ‰ﬁÿ… ·  »⁄ «·„«Ê” √À‰«¡ «·—”„
-        if (isDrawing && wirePositions.Count > 1)
+        if (WirePoint != null)
         {
-            wirePositions[wirePositions.Count - 1] = mousePos;
-            lineRenderer.SetPositions(wirePositions.ToArray());
+            MouseTracking(WirePoint);
         }
     }
 
-    Vector3 GetMouseWorldPosition()
+    void MouseTracking(GameObject point)
     {
-        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
-        if (Physics.Raycast(ray, out RaycastHit hit))
-        {
-            return hit.point; // ≈—Ã«⁄ „Ê÷⁄ «· ’«œ„ „⁄ «·„Ã”„« 
-        }
-        return ray.GetPoint(10); // ≈–« ·„ Ì’ÿœ„ »‘Ì¡° ÷⁄ «·‰ﬁÿ… »⁄Ìœ« ﬁ·Ì·«
-    }
-
-    Collider GetMouseHit()
-    {
-        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
-        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, connectionPointsLayer))
-        {
-            return hit.collider; // ≈—Ã«⁄ «·„Ã”„ «·„’ÿœ„ »Â
-        }
-        return null;
+        point.transform.position = cam.ScreenToWorldPoint(Input.mousePosition);
     }
 }

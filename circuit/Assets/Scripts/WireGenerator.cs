@@ -1,234 +1,118 @@
-using UnityEngine;
 using System;
-using Unity.Mathematics;
-
-
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class WireGenerator : MonoBehaviour
 {
-    public int segments = 32; // ÚÏÏ ÇáÃÌÒÇÁ Íæá ãÍæÑ ÇáÃÓØæÇäÉ (íÒíÏ ßËÇİÉ ÇáãËáËÇÊ)
-    public float radius = 0.5f; // äÕİ ŞØÑ ÇáÃÓØæÇäÉ (ÇáŞØÑ = 1)
-    public Material material; // ÇáãÇÏÉ (Material) ÇáãØÈŞÉ Úáì ÇáÃÓØæÇäÉ
-    public int numberOfPoints = 3; // ÚÏÏ ÇáäŞÇØ
-    public GameObject pointPrefab; // ÈÑíİÇÈ ááäŞÇØ (GameObject)
-    public int curveResolution = 20; // ÏŞÉ ÇáãäÍäì (ÚÏÏ ÇáäŞÇØ Èíä ßá äŞØÊíä)
+    public List<Transform> points;
+    public int curveResolution = 20;
+    public int tubeResolution = 8;
+    public float tubeRadius = 0.2f;
 
-    private GameObject[] points; // ãÕİæİÉ áÊÎÒíä ÇáäŞÇØ (GameObjects)
     private Mesh mesh;
+    private List<Vector3> verticesList;
+    private List<int> trianglesList;
 
     void Start()
     {
-        InitializePoints();
-        GenerateSmoothCylinder();
+        mesh = new Mesh();
+        GetComponent<MeshFilter>().mesh = mesh;
+        GenerateFullTube();
     }
 
     void Update()
     {
-        // ÊÍÏíË ÇáÃÓØæÇäÉ İí ÇáæŞÊ ÇáİÚáí ÚäÏ ÊÛííÑ Ãí ÅÚÏÇÏ
-        GenerateSmoothCylinder();
-    }
-
-    void OnValidate()
-    {
-        // ÅĞÇ Êã ÊÛííÑ ÚÏÏ ÇáäŞÇØ İí ÇáãİÊÇÍ (Inspector)¡ Şã ÈÊÍÏíË ÇáäŞÇØ
-        if (points == null || numberOfPoints != points.Length)
+        if (HasPointsChanged())
         {
-            InitializePoints();
+            GenerateFullTube();
         }
     }
 
-    void InitializePoints()
+    void GenerateFullTube()
     {
-        // ÊäÙíİ ÇáäŞÇØ ÇáŞÏíãÉ ÅĞÇ ßÇäÊ ãæÌæÏÉ
-        if (points != null)
+        if (points.Count < 3) return;
+
+        verticesList = new List<Vector3>();
+        trianglesList = new List<int>();
+
+        for (int i = 0; i < points.Count - 2; i += 2)
         {
-            foreach (var point in points)
-            {
-                if (point != null)
-                {
-                    if (Application.isPlaying)
-                        Destroy(point); // ÍĞİ ÇáäŞÇØ İí æÖÚ ÇáÊÔÛíá
-                    else
-                        DestroyImmediate(point); // ÍĞİ ÇáäŞÇØ İí ÇáæÖÚ ÇáÊÍÑíÑí
-                }
-            }
-        }
-
-        // ÅäÔÇÁ Ãæ ÊÚÏíá ÇáäŞÇØ
-        points = new GameObject[numberOfPoints];
-        for (int i = 0; i < numberOfPoints; i++)
-        {
-            string pointName = $"{gameObject.name}_Point_{i}"; // ÇÓã İÑíÏ ááäŞØÉ
-            Transform existingPoint = transform.Find(pointName);
-
-            if (existingPoint != null)
-            {
-                // ÅĞÇ ßÇäÊ ÇáäŞØÉ ãæÌæÏÉ ÈÇáİÚá¡ äÓÊÎÏãåÇ
-                points[i] = existingPoint.gameObject;
-            }
-            else
-            {
-                // ÅĞÇ áã Êßä ÇáäŞØÉ ãæÌæÏÉ¡ ääÔÆ æÇÍÏÉ ÌÏíÏÉ
-                points[i] = Instantiate(pointPrefab, transform); // ÇáäŞÇØ ÊÇÈÚÉ ááÜ Parent
-                points[i].name = pointName;
-                points[i].transform.localPosition = new Vector3(i * 2, 0, 0); // ÊæÒíÚ ÇáäŞÇØ Úáì ÇáãÍæÑ X
-
-#if UNITY_EDITOR
-                // ÊÍÏíÏ Ãä ÇáßÇÆä ŞÏ Êã ÊÚÏíáå æíÌÈ ÍİÙå
-                EditorUtility.SetDirty(points[i]);
-#endif
-            }
-        }
-
-        // ÍĞİ ÇáäŞÇØ ÇáÒÇÆÏÉ ÅĞÇ ßÇä ÚÏÏ ÇáäŞÇØ ÇáÍÇáí ÃßÈÑ ãä ÇáãØáæÈ
-        for (int i = numberOfPoints; i < transform.childCount; i++)
-        {
-            GameObject child = transform.GetChild(i).gameObject;
-            if (Application.isPlaying)
-                Destroy(child);
-            else
-                DestroyImmediate(child);
-        }
-
-        // ÅäÔÇÁ ÇáÔÈßÉ (Mesh) ÇáÌÏíÏÉ
-        if (mesh == null)
-        {
-            mesh = new Mesh();
-            GetComponent<MeshFilter>().mesh = mesh;
-        }
-    }
-
-    void GenerateSmoothCylinder()
-    {
-        if (mesh == null || points == null) return;
-
-        // ÌãÚ ãæÇŞÚ ÇáäŞÇØ ÇáãÍáíÉ
-        Vector3[] pointPositions = new Vector3[points.Length];
-        for (int i = 0; i < points.Length; i++)
-        {
-            if (points[i] == null)
-            {
-                Debug.LogWarning($"Point {i} is missing. Reinitializing points.");
-                InitializePoints();
-                return;
-            }
-            pointPositions[i] = points[i].transform.localPosition; // ÇÓÊÎÏÇã ÇáÅÍÏÇËíÇÊ ÇáãÍáíÉ
-        }
-
-        // ÅäÔÇÁ ÇáãäÍäì ÈÇÓÊÎÏÇã Bezier Curve
-        Vector3[] curvePoints = CreateBezierCurve(pointPositions, curveResolution);
-
-        int totalVertices = segments * curvePoints.Length;
-        int totalTriangles = segments * (curvePoints.Length - 1) * 6;
-
-        Vector3[] vertices = new Vector3[totalVertices];
-        int[] triangles = new int[totalTriangles];
-        Vector2[] uv = new Vector2[totalVertices];
-
-        int vertexIndex = 0;
-        int triangleIndex = 0;
-
-        // ÅäÔÇÁ ÇáŞÇÚÏÉ ÇáÚáæíÉ æÇáÓİáíÉ áßá ÌÒÁ ãä ÇáãäÍäì
-        for (int p = 0; p < curvePoints.Length; p++)
-        {
-            Vector3 currentPoint = curvePoints[p];
-            Vector3 direction = p == 0 ? (curvePoints[p + 1] - currentPoint).normalized :
-                              p == curvePoints.Length - 1 ? (currentPoint - curvePoints[p - 1]).normalized :
-                              (curvePoints[p + 1] - curvePoints[p - 1]).normalized;
-
-            Quaternion rotation = Quaternion.FromToRotation(Vector3.up, direction);
-
-            for (int i = 0; i < segments; i++)
-            {
-                float angle = 2 * Mathf.PI * i / segments;
-                float x = Mathf.Cos(angle) * radius;
-                float z = Mathf.Sin(angle) * radius;
-                int result = (p % curveResolution == 0) ? 1 : 0;
-                
-                Vector3 vertex =  rotation * new Vector3(x, radius + ((Vector3.Distance(currentPoint, direction) - (2 * radius) * ((p % curveResolution) / curveResolution)) ), z);
-                vertices[vertexIndex] = vertex;
-
-                uv[vertexIndex] = new Vector2((float)i / segments, (float)p / curvePoints.Length);
-                vertexIndex++;
-            }
-        }
-
-        // ÅäÔÇÁ ÇáãËáËÇÊ
-        for (int p = 0; p < curvePoints.Length - 1; p++)
-        {
-            for (int i = 0; i < segments; i++)
-            {
-                int current = p * segments + i;
-                int next = p * segments + (i + 1) % segments;
-                int nextSegment = (p + 1) * segments + i;
-                int nextSegmentNext = (p + 1) * segments + (i + 1) % segments;
-
-                triangles[triangleIndex] = current;
-                triangles[triangleIndex + 1] = nextSegment;
-                triangles[triangleIndex + 2] = next;
-
-                triangles[triangleIndex + 3] = next;
-                triangles[triangleIndex + 4] = nextSegment;
-                triangles[triangleIndex + 5] = nextSegmentNext;
-
-                triangleIndex += 6;
-            }
+            GenerateTube(points[i], points[i + 1], points[i + 2]);
         }
 
         mesh.Clear();
-        mesh.vertices = vertices;
-        mesh.triangles = triangles;
-        mesh.uv = uv;
-
+        mesh.vertices = verticesList.ToArray();
+        mesh.triangles = trianglesList.ToArray();
         mesh.RecalculateNormals();
-
-        // ÊØÈíŞ ÇáãÇÏÉ (Material)
-        GetComponent<MeshRenderer>().material = material;
     }
 
-    // ÅäÔÇÁ ãäÍäì Bezier
-    Vector3[] CreateBezierCurve(Vector3[] points, int resolution)
+    void GenerateTube(Transform _point0, Transform _point1, Transform _point2)
     {
-        Vector3[] curve = new Vector3[(points.Length - 1) * resolution + 1];
-        int index = 0;
+        if (_point0 == null || _point1 == null || _point2 == null) return;
 
-        for (int i = 0; i < points.Length - 1; i++)
+        int baseIndex = verticesList.Count;
+
+        for (int i = 0; i <= curveResolution; i++)
         {
-            Vector3 p0 = points[i];
-            Vector3 p1 = points[i + 1];
-            Vector3 controlPoint0 = p0 + (p1 - p0) * 0.25f; // äŞØÉ ÊÍßã 1
-            Vector3 controlPoint1 = p0 + (p1 - p0) * 0.75f; // äŞØÉ ÊÍßã 2
+            float t = i / (float)curveResolution;
+            Vector3 center = CalculateBezierPoint(t, _point0.localPosition, _point1.localPosition, _point2.localPosition);
+            Vector3 tangent = CalculateBezierTangent(t, _point0.localPosition, _point1.localPosition, _point2.localPosition);
+            Vector3 normal = Vector3.Cross(tangent, Vector3.up).normalized;
+            Vector3 binormal = Vector3.Cross(tangent, normal);
 
-            for (int t = 0; t < resolution; t++)
+            for (int j = 0; j < tubeResolution; j++)
             {
-                float tNormalized = (float)t / resolution;
-                curve[index] = CalculateBezierPoint(p0, controlPoint0, controlPoint1, p1, tNormalized);
-                index++;
+                float angle = (j / (float)tubeResolution) * Mathf.PI * 2;
+                Vector3 offset = (Mathf.Cos(angle) * normal + Mathf.Sin(angle) * binormal) * tubeRadius;
+                verticesList.Add(center + offset);
             }
         }
-        curve[index] = points[points.Length - 1]; // ÅÖÇİÉ ÇáäŞØÉ ÇáÃÎíÑÉ
 
-        return curve;
+        for (int i = 0; i < curveResolution; i++)
+        {
+            for (int j = 0; j < tubeResolution; j++)
+            {
+                int current = baseIndex + i * tubeResolution + j;
+                int next = baseIndex + i * tubeResolution + (j + 1) % tubeResolution;
+                int nextRow = baseIndex + (i + 1) * tubeResolution + j;
+                int nextRowNext = baseIndex + (i + 1) * tubeResolution + (j + 1) % tubeResolution;
+
+                trianglesList.Add(current);
+                trianglesList.Add(next);
+                trianglesList.Add(nextRow);
+
+                trianglesList.Add(next);
+                trianglesList.Add(nextRowNext);
+                trianglesList.Add(nextRow);
+            }
+        }
     }
 
-    // ÍÓÇÈ äŞØÉ Úáì ãäÍäì Bezier
-    Vector3 CalculateBezierPoint(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
+    Vector3 CalculateBezierPoint(float t, Vector3 p0, Vector3 p1, Vector3 p2)
     {
         float u = 1 - t;
-        float tt = t * t;
         float uu = u * u;
-        float uuu = uu * u;
-        float ttt = tt * t;
+        float tt = t * t;
+        return (uu * p0) + (2 * u * t * p1) + (tt * p2);
+    }
 
-        Vector3 point = uuu * p0; // (1-t)^3 * P0
-        point += 3 * uu * t * p1; // 3(1-t)^2 * t * P1
-        point += 3 * u * tt * p2; // 3(1-t) * t^2 * P2
-        point += ttt * p3; // t^3 * P3
+    Vector3 CalculateBezierTangent(float t, Vector3 p0, Vector3 p1, Vector3 p2)
+    {
+        return (2 * (1 - t) * (p1 - p0) + 2 * t * (p2 - p1)).normalized;
+    }
 
-        return point;
+    bool HasPointsChanged()
+    {
+        foreach (var point in points)
+        {
+            if (point.hasChanged)
+            {
+                point.hasChanged = false;
+                return true;
+            }
+        }
+        return false;
     }
 }
