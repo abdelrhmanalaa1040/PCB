@@ -6,38 +6,59 @@ using UnityEngine;
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class test : MonoBehaviour
 {
-    public Transform point0, point1, point2;
+    public List<Transform> points;
     public int curveResolution = 20;
     public int tubeResolution = 8;
     public float tubeRadius = 0.2f;
 
     private Mesh mesh;
+    private List<Vector3> verticesList;
+    private List<int> trianglesList;
 
     void Start()
     {
         mesh = new Mesh();
         GetComponent<MeshFilter>().mesh = mesh;
-        GenerateTube();
+        GenerateFullTube();
     }
 
-    private void Update()
+    void Update()
     {
-        GenerateTube();
+        if (HasPointsChanged())
+        {
+            GenerateFullTube();
+        }
     }
 
-    void GenerateTube()
+    void GenerateFullTube()
     {
-        if (point0 == null || point1 == null || point2 == null)
-            return;
+        if (points.Count < 3) return;
 
-        Vector3[] vertices = new Vector3[(curveResolution + 1) * tubeResolution];
-        int[] triangles = new int[curveResolution * tubeResolution * 6];
+        verticesList = new List<Vector3>();
+        trianglesList = new List<int>();
+
+        for (int i = 0; i < points.Count - 2; i += 2)
+        {
+            GenerateTube(points[i], points[i + 1], points[i + 2]);
+        }
+
+        mesh.Clear();
+        mesh.vertices = verticesList.ToArray();
+        mesh.triangles = trianglesList.ToArray();
+        mesh.RecalculateNormals();
+    }
+
+    void GenerateTube(Transform _point0, Transform _point1, Transform _point2)
+    {
+        if (_point0 == null || _point1 == null || _point2 == null) return;
+
+        int baseIndex = verticesList.Count;
 
         for (int i = 0; i <= curveResolution; i++)
         {
             float t = i / (float)curveResolution;
-            Vector3 center = CalculateBezierPoint(t, point0.position, point1.position, point2.position);
-            Vector3 tangent = CalculateBezierTangent(t, point0.position, point1.position, point2.position);
+            Vector3 center = CalculateBezierPoint(t, _point0.position, _point1.position, _point2.position);
+            Vector3 tangent = CalculateBezierTangent(t, _point0.position, _point1.position, _point2.position);
             Vector3 normal = Vector3.Cross(tangent, Vector3.up).normalized;
             Vector3 binormal = Vector3.Cross(tangent, normal);
 
@@ -45,34 +66,28 @@ public class test : MonoBehaviour
             {
                 float angle = (j / (float)tubeResolution) * Mathf.PI * 2;
                 Vector3 offset = (Mathf.Cos(angle) * normal + Mathf.Sin(angle) * binormal) * tubeRadius;
-                vertices[i * tubeResolution + j] = center + offset;
+                verticesList.Add(center + offset);
             }
         }
 
-        int triIndex = 0;
         for (int i = 0; i < curveResolution; i++)
         {
             for (int j = 0; j < tubeResolution; j++)
             {
-                int current = i * tubeResolution + j;
-                int next = i * tubeResolution + (j + 1) % tubeResolution;
-                int nextRow = (i + 1) * tubeResolution + j;
-                int nextRowNext = (i + 1) * tubeResolution + (j + 1) % tubeResolution;
+                int current = baseIndex + i * tubeResolution + j;
+                int next = baseIndex + i * tubeResolution + (j + 1) % tubeResolution;
+                int nextRow = baseIndex + (i + 1) * tubeResolution + j;
+                int nextRowNext = baseIndex + (i + 1) * tubeResolution + (j + 1) % tubeResolution;
 
-                triangles[triIndex++] = current;
-                triangles[triIndex++] = next;
-                triangles[triIndex++] = nextRow;
+                trianglesList.Add(current);
+                trianglesList.Add(next);
+                trianglesList.Add(nextRow);
 
-                triangles[triIndex++] = next;
-                triangles[triIndex++] = nextRowNext;
-                triangles[triIndex++] = nextRow;
+                trianglesList.Add(next);
+                trianglesList.Add(nextRowNext);
+                trianglesList.Add(nextRow);
             }
         }
-
-        mesh.Clear();
-        mesh.vertices = vertices;
-        mesh.triangles = triangles;
-        mesh.RecalculateNormals();
     }
 
     Vector3 CalculateBezierPoint(float t, Vector3 p0, Vector3 p1, Vector3 p2)
@@ -86,5 +101,18 @@ public class test : MonoBehaviour
     Vector3 CalculateBezierTangent(float t, Vector3 p0, Vector3 p1, Vector3 p2)
     {
         return (2 * (1 - t) * (p1 - p0) + 2 * t * (p2 - p1)).normalized;
+    }
+
+    bool HasPointsChanged()
+    {
+        foreach (var point in points)
+        {
+            if (point.hasChanged)
+            {
+                point.hasChanged = false;
+                return true;
+            }
+        }
+        return false;
     }
 }
