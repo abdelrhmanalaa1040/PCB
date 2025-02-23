@@ -1,7 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
-using UnityEditor.Build.Content;
 using UnityEngine;
 
 public class WireDrawer : MonoBehaviour
@@ -13,27 +11,27 @@ public class WireDrawer : MonoBehaviour
 
     void Start()
     {
-        
+
     }
 
     void Update()
     {
-        Vector2 mousePos = cam.ScreenToWorldPoint(Input.mousePosition);
-        RaycastHit2D hit = Physics2D.Raycast(mousePos, Vector2.zero);
-      
-        if (Input.GetMouseButton(0))
+        Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+        RaycastHit hit;
+
+        if (Physics.Raycast(ray, out hit))
         {
-            if (hit.collider != null )
+            if (Input.GetMouseButtonDown(0)) 
             {
                 GameObject _hole = hit.collider.gameObject;
-                GameObject newWire = Instantiate(WirePrefab, _hole.transform.position, transform.rotation);
+
+                GameObject newWire = Instantiate(WirePrefab, _hole.transform.position, Quaternion.identity);
                 WireGenerator = newWire.GetComponent<WireGenerator>();
-                WirePoint = WireGenerator.points[WireGenerator.points.Count].gameObject;
-                print("done");
-            }
-            else
-            {
-                print(hit.collider.gameObject.name);
+
+                if (WireGenerator.points.Count > 0)
+                {
+                    WirePoint = WireGenerator.points[WireGenerator.points.Count - 1].gameObject;
+                }
             }
         }
 
@@ -45,6 +43,8 @@ public class WireDrawer : MonoBehaviour
 
     void MouseTracking(GameObject point)
     {
-        point.transform.position = cam.ScreenToWorldPoint(Input.mousePosition);
+        Vector3 mousePos = Input.mousePosition;
+      //  mousePos.z = 0; 
+        point.transform.position = cam.ScreenToWorldPoint(mousePos);
     }
 }
