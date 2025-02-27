@@ -59,10 +59,25 @@ public class WireGenerator : MonoBehaviour
             float t = i / (float)curveResolution;
             Vector3 Direction1 = (_point0.localPosition - _point1.localPosition).normalized * tubeRadius;
             Vector3 Direction2 = (_point2.localPosition - _point1.localPosition).normalized * tubeRadius;
+          
+            Vector3 center;
+            Vector3 tangent;
+            Vector3 averageDirection;
 
-            Vector3 center = CalculateBezierPoint(t, Direction1, _point1.localPosition, Direction2);
-            Vector3 tangent = CalculateBezierTangent(t, Direction1, _point1.localPosition, Direction2);
-            Vector3 averageDirection = (Direction1 + Direction2).normalized;
+
+            if (Direction1 != Vector3.zero && Direction2 != Vector3.zero)
+            {
+                center = CalculateBezierPoint(t, Direction1, _point1.localPosition, Direction2);
+                tangent = CalculateBezierTangent(t, Direction1, _point1.localPosition, Direction2);
+                averageDirection = (Direction1 + Direction2).normalized;
+            }
+            else
+            {
+                center = CalculateBezierPoint(t, _point0.localPosition, _point1.localPosition, _point2.localPosition);
+                tangent = CalculateBezierTangent(t, _point0.localPosition, _point1.localPosition, _point2.localPosition);
+                averageDirection = (Vector3.up).normalized;
+            }
+
             Vector3 normal = Vector3.Cross(tangent, averageDirection).normalized;
             Vector3 binormal = Vector3.Cross(tangent, normal).normalized;
 
